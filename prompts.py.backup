@@ -1,0 +1,311 @@
+"""
+Prompt 构建模块
+从 NOFX 项目提取的 System Prompt 和 User Prompt 构建逻辑
+专门用于 BTC 盯盘分析（无交易逻辑，仅分析）
+"""
+
+from datetime import datetime
+from typing import Dict, List
+
+
+def build_system_prompt() -> str:
+    """
+    构建 System Prompt（固定规则）
+    改编自 NOFX 的 buildSystemPrompt() 函数
+    针对盯盘分析场景优化（移除交易相关的指令）
+    """
+    prompt = """你是专业的加密货币市场分析AI，专注于 BTC 市场分析和趋势预测。
+
+# 🎯 核心任务
+
+你的任务是：
+1. **分析当前市场状态**：从多维度分析 BTC 当前走势
+2. **识别关键信号**：找出重要的技术指标信号和市场特征
+3. **预测短期趋势**：基于数据判断未来 1-4 小时的可能走势
+4. **风险提示**：标注潜在的风险点和关键价位
+
+**重要**: 这是纯分析任务，你不需要给出交易建议，只需要客观分析市场状态。
+
+---
+
+# 📊 你拥有的完整数据
+
+- **原始序列**: 3分钟价格序列(MidPrices数组) + 4小时K线序列
+- **技术序列**: EMA20序列、MACD序列、RSI7序列、RSI14序列、ATR序列
+- **资金序列**: 成交量序列、持仓量(OI)数据、资金费率
+- **时间框架**: 日内短期(3分钟) + 中长期趋势(4小时)
+
+---
+
+# 🔍 分析方法
+
+你可以自由运用以下分析方法（不限于此）：
+
+**趋势分析**:
+- 价格是否突破关键均线（EMA20/EMA50）
+- 多周期趋势一致性（3分钟 vs 4小时）
+- 支撑位和阻力位识别
+
+**动量分析**:
+- RSI 超买超卖状态（RSI7 和 RSI14）
+- MACD 金叉死叉、柱状图变化
+- 价格动量与指标背离
+
+**量价分析**:
+- 成交量放大/萎缩
+- 量价配合情况（涨量跌缩 vs 涨缩跌量）
+- 持仓量变化趋势
+
+**波动分析**:
+- ATR 波动率水平
+- 价格波动范围
+- 潜在的爆发或收敛
+
+**资金面**:
+- 资金费率正负（做多/做空情绪）
+- 持仓量变化（资金流入/流出）
+
+---
+
+# 📋 分析流程
+
+1. **整体评估**: 当前 BTC 处于什么状态？（上涨/下跌/震荡）
+2. **技术面分析**:
+   - 3分钟级别：短期动量如何？
+   - 4小时级别：中期趋势如何？
+   - 多周期是否一致？
+3. **关键信号识别**:
+   - 有哪些重要的技术信号？（金叉、突破、背离等）
+   - 哪些指标最重要？
+4. **趋势预测**:
+   - 未来1小时：可能的走势方向和关键价位
+   - 未来4小时：中期趋势方向
+5. **风险点**:
+   - 需要关注的支撑/阻力位
+   - 可能的反转信号
+
+---
+
+# 📤 输出格式
+
+**第一步: 思维链分析（简洁清晰的文本）**
+
+用简洁的语言分析你的思考过程，包括：
+- 整体市场状态判断
+- 关键技术指标分析
+- 趋势预测依据
+- 风险提示
+
+**第二步: JSON格式的结构化总结**
+
+```json
+{
+  "market_state": "上涨趋势 | 下跌趋势 | 震荡整理 | 趋势转折",
+  "short_term_trend": "1小时内可能走势的描述",
+  "mid_term_trend": "4小时内可能走势的描述",
+  "key_levels": {
+    "support": 价格支撑位,
+    "resistance": 价格阻力位
+  },
+  "confidence": 75,
+  "key_signals": [
+    "信号1描述",
+    "信号2描述"
+  ],
+  "risk_warning": "风险提示文字",
+  "summary": "一句话总结当前市场"
+}
+```
+
+---
+
+**记住**:
+- 客观分析，不带个人倾向
+- 基于数据，不凭感觉
+- 识别信号强度（强/中/弱）
+- 标注不确定性和风险
+"""
+    return prompt
+
+
+def build_user_prompt(market_data: Dict, runtime_minutes: int = 0, call_count: int = 0) -> str:
+    """
+    构建 User Prompt（动态市场数据）
+    改编自 NOFX 的 buildUserPrompt() 函数
+
+    Args:
+        market_data: 市场数据字典（来自 market_data.py）
+        runtime_minutes: 系统运行时长（分钟）
+        call_count: AI 调用次数
+
+    Returns:
+        格式化的 user prompt 字符串
+    """
+    lines = []
+
+    # === 系统状态 ===
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines.append(f"**时间**: {current_time} | **周期**: #{call_count} | **运行**: {runtime_minutes}分钟\n")
+
+    # === BTC 市场概览 ===
+    lines.append("## 📊 BTC 市场概览\n")
+    lines.append(f"**当前价格**: ${market_data['current_price']:,.2f}")
+    lines.append(f"**1小时涨跌**: {market_data['price_change_1h']:+.2f}%")
+    lines.append(f"**4小时涨跌**: {market_data['price_change_4h']:+.2f}%")
+    lines.append(f"**MACD**: {market_data['current_macd']:.4f}")
+    lines.append(f"**RSI(7)**: {market_data['current_rsi7']:.2f}\n")
+
+    # === 技术指标详情 ===
+    lines.append("## 📈 技术指标详情\n")
+
+    # 短期指标（3分钟）
+    lines.append("### 日内短期 (3分钟)\n")
+    lines.append(f"**EMA20**: ${market_data['current_ema20']:.2f}")
+
+    intraday = market_data['intraday_series']
+    lines.append(f"**价格序列** (最近20个点): ")
+    lines.append(f"  • 最高: ${max(intraday['mid_prices']):.2f}")
+    lines.append(f"  • 最低: ${min(intraday['mid_prices']):.2f}")
+    lines.append(f"  • 完整序列: {[f'{p:.2f}' for p in intraday['mid_prices'][-10:]]}")  # 最近10个点
+    lines.append("")
+
+    lines.append(f"**MACD序列** (最近10个点): {[f'{v:.4f}' for v in intraday['macd_values'][-10:]]}")
+    lines.append(f"**RSI(7)序列** (最近10个点): {[f'{v:.2f}' for v in intraday['rsi7_values'][-10:]]}")
+    lines.append(f"**RSI(14)序列** (最近10个点): {[f'{v:.2f}' for v in intraday['rsi14_values'][-10:]]}\n")
+
+    # 长期指标（4小时）
+    longer_term = market_data['longer_term_context']
+    lines.append("### 中长期趋势 (4小时)\n")
+    lines.append(f"**EMA20**: ${longer_term['ema20']:.2f}")
+    lines.append(f"**EMA50**: ${longer_term['ema50']:.2f}")
+    lines.append(f"**ATR(3)**: {longer_term['atr3']:.2f}")
+    lines.append(f"**ATR(14)**: {longer_term['atr14']:.2f}")
+    lines.append("")
+
+    lines.append(f"**成交量**: ")
+    lines.append(f"  • 当前: {longer_term['current_volume']:,.2f}")
+    lines.append(f"  • 平均: {longer_term['average_volume']:,.2f}")
+    volume_ratio = (longer_term['current_volume'] / longer_term['average_volume'] * 100) if longer_term['average_volume'] > 0 else 0
+    lines.append(f"  • 比率: {volume_ratio:.1f}% (当前/平均)")
+    lines.append("")
+
+    lines.append(f"**MACD序列 (4h, 最近10个点)**: {[f'{v:.4f}' for v in longer_term['macd_values'][-10:]]}")
+    lines.append(f"**RSI(14)序列 (4h, 最近10个点)**: {[f'{v:.2f}' for v in longer_term['rsi14_values'][-10:]]}\n")
+
+    # === 市场资金面 ===
+    lines.append("## 💰 市场资金面\n")
+    oi = market_data['open_interest']
+    lines.append(f"**持仓量**: {oi['latest']:,.0f} BTC")
+    lines.append(f"**资金费率**: {market_data['funding_rate']:.6f} ({market_data['funding_rate']*100:.4f}%)")
+
+    # 资金费率解读
+    if market_data['funding_rate'] > 0.0001:
+        lines.append(f"  → 做多资金费率偏高，市场看多情绪较强")
+    elif market_data['funding_rate'] < -0.0001:
+        lines.append(f"  → 做空资金费率偏高，市场看空情绪较强")
+    else:
+        lines.append(f"  → 资金费率接近中性，多空相对平衡")
+    lines.append("")
+
+    # === 请求AI分析 ===
+    lines.append("---\n")
+    lines.append("请基于以上完整的市场数据，进行深度分析：")
+    lines.append("1. 判断当前市场整体状态（上涨/下跌/震荡）")
+    lines.append("2. 分析关键技术指标信号")
+    lines.append("3. 预测未来 1-4 小时可能的走势")
+    lines.append("4. 标注关键的支撑/阻力位和风险点")
+    lines.append("")
+    lines.append("**输出格式**: 思维链分析 + JSON结构化总结\n")
+
+    return "\n".join(lines)
+
+
+def format_analysis_result(cot_trace: str, json_result: Dict) -> str:
+    """
+    格式化分析结果用于 Telegram 消息（HTML 格式）
+
+    Args:
+        cot_trace: 思维链分析文本
+        json_result: 结构化分析结果（JSON）
+
+    Returns:
+        HTML 格式的消息字符串
+    """
+    lines = []
+
+    # 转义 HTML 特殊字符
+    def escape_html(text):
+        if not isinstance(text, str):
+            text = str(text)
+        return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    lines.append("🤖 <b>BTC 市场分析报告</b>\n")
+    lines.append("━" * 40)
+    lines.append("")
+
+    # 一句话总结
+    if 'summary' in json_result:
+        summary = escape_html(json_result['summary'])
+        lines.append(f"📌 <b>总结</b>: {summary}\n")
+
+    # 市场状态
+    if 'market_state' in json_result:
+        state_emoji = {
+            "上涨趋势": "📈",
+            "下跌趋势": "📉",
+            "震荡整理": "↔️",
+            "趋势转折": "🔄"
+        }
+        emoji = state_emoji.get(json_result['market_state'], "📊")
+        market_state = escape_html(json_result['market_state'])
+        lines.append(f"{emoji} <b>市场状态</b>: {market_state}\n")
+
+    # 趋势预测
+    if 'short_term_trend' in json_result:
+        trend = escape_html(json_result['short_term_trend'])
+        lines.append(f"⏰ <b>短期(1h)</b>: {trend}")
+    if 'mid_term_trend' in json_result:
+        trend = escape_html(json_result['mid_term_trend'])
+        lines.append(f"⏳ <b>中期(4h)</b>: {trend}\n")
+
+    # 关键价位
+    if 'key_levels' in json_result:
+        levels = json_result['key_levels']
+        lines.append("🎯 <b>关键价位</b>:")
+        if 'resistance' in levels:
+            lines.append(f"  • 阻力位: ${levels['resistance']:,.2f}")
+        if 'support' in levels:
+            lines.append(f"  • 支撑位: ${levels['support']:,.2f}")
+        lines.append("")
+
+    # 关键信号
+    if 'key_signals' in json_result and json_result['key_signals']:
+        lines.append("⚡ <b>关键信号</b>:")
+        for signal in json_result['key_signals']:
+            signal_text = escape_html(signal)
+            lines.append(f"  • {signal_text}")
+        lines.append("")
+
+    # 风险提示
+    if 'risk_warning' in json_result:
+        warning = escape_html(json_result['risk_warning'])
+        lines.append(f"⚠️ <b>风险提示</b>: {warning}\n")
+
+    # 信心度
+    if 'confidence' in json_result:
+        confidence = json_result['confidence']
+        confidence_level = "高" if confidence >= 80 else "中" if confidence >= 60 else "低"
+        lines.append(f"📊 <b>分析信心度</b>: {confidence}% ({confidence_level})\n")
+
+    lines.append("━" * 40)
+    lines.append("")
+
+    # 思维链（限制长度）
+    lines.append("💭 <b>AI 分析过程</b>:")
+    cot_preview = cot_trace[:400] if len(cot_trace) > 400 else cot_trace
+    cot_escaped = escape_html(cot_preview)
+    lines.append(f"<pre>{cot_escaped}</pre>")
+    if len(cot_trace) > 400:
+        lines.append("<i>... (完整分析已保存到日志)</i>")
+
+    return "\n".join(lines)

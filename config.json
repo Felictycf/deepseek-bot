@@ -1,0 +1,14 @@
+{
+  "deepseek_api_key": "sk-eyoooqmqjawshkxaqghucycxbhtoszulujeywupyfmsynkkb",
+  "deepseek_base_url": "https://api.siliconflow.cn/v1",
+  "deepseek_model": "deepseek-ai/DeepSeek-V3.1",
+
+  "telegram_bot_token": "8478473615:AAGmpG0xQc2s4vBlQOU24a-tk9iKKbTWDb4",
+  "telegram_chat_id": "8106156597",
+
+  "chart_api_key": "Csevz22MfE5PGn4BY2WQP9o76MtFBXik493P12ZG",
+  "chart_api_url": "https://api.chart-img.com/v2/tradingview/advanced-chart",
+  "chart_interval": "1h",
+
+  "analysis_interval_minutes": 5
+}

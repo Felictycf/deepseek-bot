@@ -1,0 +1,22 @@
+{
+  "symbol": "BINANCE:BTCUSDT",
+  "interval": "1h",
+  "theme": "dark",
+  "width": 1200,
+  "height": 800,
+  "studies": [
+    {
+      "name": "Volume",
+      "forceOverlay": true
+    },
+    {
+      "name": "MACD"
+    },
+    {
+      "name": "Relative Strength Index"
+    },
+    {
+      "name": "Open Interest"
+    }
+  ]
+}
